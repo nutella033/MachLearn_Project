@@ -1,0 +1,110 @@
+Predicting Weight Lifting Performance
+========================================================
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+### Introduction
+
+The goal of this analysis is to create an algorithm to predict the effectiveness of a weight lifting exercise based on fitness sensor data.
+
+### Data
+
+Below are the R packages that will be used for our analysis.
+
+```{r library, message=FALSE, warning=FALSE}
+library(caret)
+```
+
+We begin by importing the fitness sensor data. Our goal is to predict the `classe` variable using any of the other variables. After looking through the data manually, we determined that missing values are represented in one of three ways so we explicity specify them when importing the data.
+
+```{r}
+training <- read.csv("pml-training.csv",na.strings=c("","#DIV/0!","NA"))
+```
+
+Based on the needs of our analysis, we exclude the variables relating to time and the experiment participants.
+
+```{r}
+exclude <- c("X","user_name","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp")
+training <- training[,-which(names(training) %in% exclude)]
+dim(training)
+```
+
+The data contains 154 different predictors so we look to reduce the dimensions of the dataset by eliminating predictors with zero variance.
+
+```{r}
+nsv <- nearZeroVar(training,saveMetrics=TRUE)
+exclude2 <- rownames(nsv[nsv$zeroVar==TRUE,])
+exclude2
+training <- training[,-which(names(training) %in% exclude2)]
+dim(training)
+```
+
+We also noticed observed that many of predictors consisted mostly, but not entirely, of `NA` values. The following function will calculate the proportion of a predictors values that are `NA`.
+
+```{r}
+na.prop <- function(x) {
+    sum(is.na(x))/length(x)
+}
+```
+
+We use the `na.prop` function to remove all predictors containing over 95% of `NA` values. This will reduce the dimensions of our dataset helping with the subsequent machine learning.
+
+```{r}
+exclude3 <- names(which(sapply(training,na.prop)>0.95))
+training <- training[,-which(names(training) %in% exclude3)]
+dim(training)
+```
+
+
+### Model
+
+We now partition our cleaned up dataset to create training and testing sets for our model development.
+
+```{r}
+set.seed(1000)
+inTraining <- createDataPartition(y=training$classe,p=0.8,list=FALSE)
+myTraining <- training[inTraining,]
+myTesting <- training[-inTraining,]
+```
+
+To optimize our model development we apply cross-validation with 10 folds using the `trainControl` function.
+
+```{r}
+fitControl <- trainControl(method="cv",number=10)
+```
+
+We now use random forests to create the prediction algorithm as it generally provides high accuracy for class prediction.
+
+```{r message=FALSE, eval=FALSE}
+modFit <- train(classe ~ .,data=myTraining,trControl=fitControl,method="rf")
+```
+
+```{r include=FALSE}
+load("model.RData")
+```
+
+```{r}
+summary(modFit)
+modFit$finalModel
+```
+
+
+### Accuracy
+
+```{r}
+print(modFit,digits=3)
+```
+
+Based on the results of the model fitting, our in-sample accuracy is 0.998, making our in-sample error rate 0.002. We can now apply our model to our training set to determine the out-sample error rate.
+
+```{r}
+pred <- predict(modFit,myTesting)
+accuracy <- sum(pred==myTesting$classe)/nrow(myTesting)
+accuracy
+error <- 1-accuracy
+error
+```
+
+The estimate of our out-sample accuracy is 0.9982, making our out-sample error rate 0.001, or 0.1%.
