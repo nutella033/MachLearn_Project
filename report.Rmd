@@ -77,12 +77,8 @@ fitControl <- trainControl(method="cv",number=10)
 
 We now use random forests to create the prediction algorithm as it generally provides high accuracy for class prediction.
 
-```{r message=FALSE, eval=FALSE}
+```{r message=FALSE}
 modFit <- train(classe ~ .,data=myTraining,trControl=fitControl,method="rf")
-```
-
-```{r include=FALSE}
-load("model.RData")
 ```
 
 ```{r}
